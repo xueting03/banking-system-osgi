@@ -1,0 +1,38 @@
+# Banking System OSGi
+
+Prereqs: Java 17+ and Maven.
+
+## Download runtime bundles (not committed)
+```
+mkdir -p bundles
+# Equinox framework + console
+curl -L -o org.eclipse.osgi_3.24.0.v20251126-0427.jar https://download.eclipse.org/equinox/drops/R-4.38-202512010920/org.eclipse.osgi_3.24.0.v20251126-0427.jar
+curl -L -o org.eclipse.equinox.console_1.4.1100.v20250722-0745.jar https://download.eclipse.org/equinox/drops/R-4.38-202512010920/org.eclipse.equinox.console_1.4.1100.v20250722-0745.jar
+# Felix Gogo console dependencies
+curl -L -o bundles/org.apache.felix.gogo.runtime-1.1.6.jar https://repo1.maven.org/maven2/org/apache/felix/org.apache.felix.gogo.runtime/1.1.6/org.apache.felix.gogo.runtime-1.1.6.jar
+curl -L -o bundles/org.apache.felix.gogo.command-1.1.2.jar https://repo1.maven.org/maven2/org/apache/felix/org.apache.felix.gogo.command/1.1.2/org.apache.felix.gogo.command-1.1.2.jar
+curl -L -o bundles/org.apache.felix.gogo.shell-1.1.4.jar https://repo1.maven.org/maven2/org/apache/felix/org.apache.felix.gogo.shell/1.1.4/org.apache.felix.gogo.shell-1.1.4.jar
+```
+
+## Build
+```
+mvn clean package
+```
+
+## Run Equinox with console
+```
+java -Dosgi.bundles=reference:file:bundles/org.apache.felix.gogo.runtime-1.1.6.jar@start,reference:file:bundles/org.apache.felix.gogo.command-1.1.2.jar@start,reference:file:bundles/org.apache.felix.gogo.shell-1.1.4.jar@start,reference:file:org.eclipse.equinox.console_1.4.1100.v20250722-0745.jar@start -jar org.eclipse.osgi_3.24.0.v20251126-0427.jar -clean -console -configuration configuration
+```
+You’ll see the Gogo prompt `g!` (modern replacement for the old `osgi>`).
+
+## Install and start bundles inside the console
+```
+install file:banking-api/target/banking-api-1.0.0.jar
+install file:banking-account/target/banking-account-1.0.0.jar
+install file:banking-transaction/target/banking-transaction-1.0.0.jar
+ss   # note the assigned bundle IDs
+start <api-id>
+start <account-id>
+start <transaction-id>
+```
+Start account before transaction so the account service is available; the transaction bundle will then run its demo. Use `stop 0` to shut down the framework.
