@@ -32,11 +32,13 @@ install file:banking-account/target/banking-account-1.0.0.jar
 install file:banking-transaction/target/banking-transaction-1.0.0.jar
 install file:banking-customer/target/banking-customer-1.0.0.jar
 install file:banking-deposit/target/banking-deposit-1.0.0.jar
+install file:banking-cli/target/banking-cli-1.0.0.jar
 ss   # note the assigned bundle IDs
 start <api-id>
 start <account-id>
 start <customer-id>
 start <deposit-id>
 start <transaction-id>
+start <cli-id>
 ```
-Start account before transaction so the account service is available; the transaction bundle will then run its demo. Use `stop 0` to shut down the framework.
+Start account before transaction so the account service is available; the transaction bundle will then run its demo. The CLI bundle provides interactive commands for the banking system. Use `stop 0` to shut down the framework.
