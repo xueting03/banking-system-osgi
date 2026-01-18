@@ -16,6 +16,7 @@
         <module>banking-transaction</module>
         <module>banking-customer</module>
         <module>banking-deposit</module>
+        <module>banking-cli</module>
     </modules>
     
     <properties>
