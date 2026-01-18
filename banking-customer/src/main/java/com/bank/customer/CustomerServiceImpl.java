@@ -6,6 +6,7 @@ import com.bank.api.Customer;
 
 public class CustomerServiceImpl implements ICustomerService {
     private final Map<String, Customer> customers = new HashMap<>();
+    private final Map<String, String> identificationToId = new HashMap<>(); // Map IC number to customer ID
 
     // Password validation: at least 8 chars, contains digit, contains letter
     private boolean isPasswordValid(String password) {
@@ -54,6 +55,13 @@ public class CustomerServiceImpl implements ICustomerService {
         System.out.println("Customer created: " + name + " (" + email + ")");
         return customer;
     }
+    
+    // Helper method to register identification number
+    public void registerIdentificationNo(Customer customer) {
+        if (customer.getIdentificationNo() != null) {
+            identificationToId.put(customer.getIdentificationNo(), customer.getId());
+        }
+    }
 
     @Override
     public Customer updateCustomer(String id, String name, String email) {
@@ -89,26 +97,40 @@ public class CustomerServiceImpl implements ICustomerService {
 
     @Override
     public Customer getCustomer(String id) {
-        return customers.get(id);
+        // First try direct ID lookup
+        Customer customer = customers.get(id);
+        if (customer != null) {
+            return customer;
+        }
+        
+        // Try identification number lookup
+        String customerId = identificationToId.get(id);
+        if (customerId != null) {
+            return customers.get(customerId);
+        }
+        
+        return null;
     }
 
 
     // Login/verify method
-    public boolean verifyLogin(String id, String password) {
-        Customer customer = customers.get(id);
+    public boolean verifyLogin(String idOrIdentificationNo, String password) {
+        // Try to find customer by ID or identification number
+        Customer customer = getCustomer(idOrIdentificationNo);
+        
         if (customer == null) {
-            System.out.println("Login failed: Customer not found (" + id + ")");
+            System.out.println("Login failed: Customer not found (" + idOrIdentificationNo + ")");
             return false;
         }
         if (!"ACTIVE".equalsIgnoreCase(customer.getStatus())) {
-            System.out.println("Login failed: Customer not active (" + id + ")");
+            System.out.println("Login failed: Customer not active (" + idOrIdentificationNo + ")");
             return false;
         }
         boolean success = verifyPassword(password, customer.getPassword());
         if (success) {
-            System.out.println("Login successful for customer: " + id);
+            System.out.println("Login successful for customer: " + idOrIdentificationNo);
         } else {
-            System.out.println("Login failed: Incorrect password for customer: " + id);
+            System.out.println("Login failed: Incorrect password for customer: " + idOrIdentificationNo);
         }
         return success;
     }
