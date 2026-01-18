@@ -14,6 +14,7 @@
         <module>banking-api</module>
         <module>banking-account</module>
         <module>banking-transaction</module>
+        <module>banking-customer</module>
     </modules>
     
     <properties>
