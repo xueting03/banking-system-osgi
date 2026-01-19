@@ -4,3 +4,4 @@ bundles/
 org.eclipse.osgi_*.jar
 org.eclipse.equinox.console_*.jar
 *.log
+*.db

@@ -11,6 +11,7 @@ import org.osgi.util.tracker.ServiceTracker;
 import org.osgi.util.tracker.ServiceTrackerCustomizer;
 
 import com.bank.api.ICustomerService;
+import com.bank.api.ISupportTicketService;
 import com.bank.api.IDepositAccountService;
 
 public class Activator implements BundleActivator {
@@ -19,6 +20,8 @@ public class Activator implements BundleActivator {
     private ServiceTracker<ICustomerService, ICustomerService> customerServiceTracker;
     private ServiceRegistration<?> depositCommandServiceRegistration;
     private ServiceRegistration<?> customerCommandServiceRegistration;
+    private ServiceRegistration<?> supportCommandServiceRegistration;
+    private ServiceTracker<ISupportTicketService, ISupportTicketService> supportServiceTracker;
 
     @Override
     public void start(BundleContext context) throws Exception {
@@ -39,6 +42,14 @@ public class Activator implements BundleActivator {
             new CustomerServiceTrackerCustomizer(context)
         );
         customerServiceTracker.open();
+
+        // Track ISupportTicketService
+        supportServiceTracker = new ServiceTracker<>(
+            context,
+            ISupportTicketService.class,
+            new SupportServiceTrackerCustomizer(context)
+        );
+        supportServiceTracker.open();
     }
 
     @Override
@@ -63,6 +74,16 @@ public class Activator implements BundleActivator {
         if (customerServiceTracker != null) {
             customerServiceTracker.close();
             customerServiceTracker = null;
+        }
+
+        if (supportCommandServiceRegistration != null) {
+            supportCommandServiceRegistration.unregister();
+            supportCommandServiceRegistration = null;
+        }
+
+        if (supportServiceTracker != null) {
+            supportServiceTracker.close();
+            supportServiceTracker = null;
         }
     }
 
@@ -178,6 +199,62 @@ public class Activator implements BundleActivator {
                 customerCommandServiceRegistration = null;
             }
             
+            context.ungetService(reference);
+        }
+    }
+
+    /**
+     * Tracks the lifecycle of the Support Ticket service.
+     */
+    private class SupportServiceTrackerCustomizer implements ServiceTrackerCustomizer<ISupportTicketService, ISupportTicketService> {
+
+        private final BundleContext context;
+
+        public SupportServiceTrackerCustomizer(BundleContext context) {
+            this.context = context;
+        }
+
+        @Override
+        public ISupportTicketService addingService(ServiceReference<ISupportTicketService> reference) {
+            ISupportTicketService supportService = context.getService(reference);
+
+            if (supportService != null) {
+                System.out.println("Support service detected - Registering Gogo commands...");
+
+                SupportCommands commands = new SupportCommands(supportService);
+
+                Dictionary<String, Object> properties = new Hashtable<>();
+                properties.put("osgi.command.scope", "support");
+                properties.put("osgi.command.function", new String[] {
+                    "create", "update", "assign", "status", "list", "get"
+                });
+
+                supportCommandServiceRegistration = context.registerService(
+                    SupportCommands.class.getName(),
+                    commands,
+                    properties
+                );
+
+                System.out.println("Gogo support commands registered successfully!");
+            }
+
+            return supportService;
+        }
+
+        @Override
+        public void modifiedService(ServiceReference<ISupportTicketService> reference, ISupportTicketService service) {
+            // No action needed on modification
+        }
+
+        @Override
+        public void removedService(ServiceReference<ISupportTicketService> reference, ISupportTicketService service) {
+            System.out.println("Support service removed - Unregistering commands...");
+
+            if (supportCommandServiceRegistration != null) {
+                supportCommandServiceRegistration.unregister();
+                supportCommandServiceRegistration = null;
+            }
+
             context.ungetService(reference);
         }
     }
