@@ -2,6 +2,7 @@ package com.bank.cli;
 
 import java.math.BigDecimal;
 
+import com.bank.api.DepositAccount;
 import com.bank.api.IDepositAccountService;
 
 public class DepositCommands {
@@ -29,7 +30,13 @@ public class DepositCommands {
                 }
             }
             
-            return depositService.createDepositAccount(ic, password, initialBalance);
+            DepositAccount account = depositService.createDepositAccount(ic, password, initialBalance);
+            if (account == null) {
+                return "ERROR: Failed to create deposit account. Please check your credentials and try again.";
+            }
+            
+            return String.format("SUCCESS: Deposit account created (ID: %s, Initial Balance: $%s, Status: %s)",
+                account.getAccountId(), account.getBalance(), account.getStatus());
         } catch (Exception e) {
             return "Error creating deposit account: " + e.getMessage();
         }
@@ -41,7 +48,13 @@ public class DepositCommands {
      */
     public String get(String ic, String password) {
         try {
-            return depositService.getDepositAccount(ic, password);
+            DepositAccount account = depositService.getDepositAccount(ic, password);
+            if (account == null) {
+                return "ERROR: No deposit account found or invalid credentials.";
+            }
+            
+            return String.format("SUCCESS: Account ID: %s, Status: %s, Balance: $%s, Created: %s",
+                account.getAccountId(), account.getStatus(), account.getBalance(), account.getCreatedAt());
         } catch (Exception e) {
             return "Error retrieving deposit account: " + e.getMessage();
         }
@@ -54,7 +67,13 @@ public class DepositCommands {
     public String deposit(String ic, String password, String amount) {
         try {
             BigDecimal amountValue = new BigDecimal(amount);
-            return depositService.depositFunds(ic, password, amountValue);
+            DepositAccount account = depositService.depositFunds(ic, password, amountValue);
+            if (account == null) {
+                return "ERROR: Failed to deposit funds. Please check credentials and account status.";
+            }
+            
+            return String.format("SUCCESS: Deposited $%s. New Balance: $%s",
+                amountValue, account.getBalance());
         } catch (NumberFormatException e) {
             return "Error: Invalid amount format. Please provide a valid number.";
         } catch (Exception e) {
@@ -69,7 +88,13 @@ public class DepositCommands {
     public String withdraw(String ic, String password, String amount) {
         try {
             BigDecimal amountValue = new BigDecimal(amount);
-            return depositService.withdrawFunds(ic, password, amountValue);
+            DepositAccount account = depositService.withdrawFunds(ic, password, amountValue);
+            if (account == null) {
+                return "ERROR: Failed to withdraw funds. Please check credentials, balance, and account status.";
+            }
+            
+            return String.format("SUCCESS: Withdrew $%s. New Balance: $%s",
+                amountValue, account.getBalance());
         } catch (NumberFormatException e) {
             return "Error: Invalid amount format. Please provide a valid number.";
         } catch (Exception e) {
@@ -83,7 +108,13 @@ public class DepositCommands {
      */
     public String freeze(String ic, String password) {
         try {
-            return depositService.updateDepositAccountStatus(ic, password, "FREEZE");
+            DepositAccount account = depositService.updateDepositAccountStatus(ic, password, "FREEZE");
+            if (account == null) {
+                return "ERROR: Failed to freeze account. Please check credentials and account status.";
+            }
+            
+            return String.format("SUCCESS: Account frozen (ID: %s, Status: %s)",
+                account.getAccountId(), account.getStatus());
         } catch (Exception e) {
             return "Error freezing account: " + e.getMessage();
         }
@@ -95,7 +126,13 @@ public class DepositCommands {
      */
     public String unfreeze(String ic, String password) {
         try {
-            return depositService.updateDepositAccountStatus(ic, password, "UNFREEZE");
+            DepositAccount account = depositService.updateDepositAccountStatus(ic, password, "UNFREEZE");
+            if (account == null) {
+                return "ERROR: Failed to unfreeze account. Please check credentials and account status.";
+            }
+            
+            return String.format("SUCCESS: Account unfrozen (ID: %s, Status: %s)",
+                account.getAccountId(), account.getStatus());
         } catch (Exception e) {
             return "Error unfreezing account: " + e.getMessage();
         }
@@ -107,7 +144,13 @@ public class DepositCommands {
      */
     public String close(String ic, String password) {
         try {
-            return depositService.closeDepositAccount(ic, password);
+            DepositAccount account = depositService.closeDepositAccount(ic, password);
+            if (account == null) {
+                return "ERROR: Failed to close account. Please check credentials.";
+            }
+            
+            return String.format("SUCCESS: Deposit account closed (ID: %s, Final Balance: $%s)",
+                account.getAccountId(), account.getBalance());
         } catch (Exception e) {
             return "Error closing deposit account: " + e.getMessage();
         }

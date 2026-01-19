@@ -13,9 +13,9 @@ public class CustomerCommands {
 
     /**
      * Create a new customer with IC and password
-     * customer:create <name> <email> <ic> <password>
+     * customer:create <ic> <password> <name> <email>
      */
-    public String create(String name, String email, String ic, String password) {
+    public String create(String ic, String password, String name, String email) {
         try {
             // Use reflection to call the overloaded createCustomer method with password
             java.lang.reflect.Method method = customerService.getClass().getMethod(
