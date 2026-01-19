@@ -54,40 +54,4 @@ public class SupportCommands {
         SupportTicket ticket = supportService.updateTicketStatus(ticketId, staffId, parsed);
         return ticket == null ? "Failed to update status" : format(ticket);
     }
-
-    /**
-     * support:list
-     */
-    public String list() {
-        List<SupportTicket> tickets = supportService.listTickets();
-        if (tickets == null || tickets.isEmpty()) {
-            return "No tickets found.";
-        }
-        StringBuilder sb = new StringBuilder();
-        for (SupportTicket t : tickets) {
-            sb.append(format(t)).append(System.lineSeparator());
-        }
-        return sb.toString().trim();
-    }
-
-    /**
-     * support:get <ticketId>
-     */
-    public String get(String ticketId) {
-        SupportTicket ticket = supportService.getTicket(ticketId);
-        return ticket == null ? "Ticket not found" : format(ticket);
-    }
-
-    private String format(SupportTicket ticket) {
-        return String.format(
-            "Ticket %s | acct=%s | title=%s | assigned=%s | status=%s | created=%s | updated=%s",
-            ticket.getId(),
-            ticket.getAccountNumber(),
-            ticket.getTitle(),
-            ticket.getAssignedStaffId(),
-            ticket.getStatus(),
-            ticket.getCreatedAt(),
-            ticket.getUpdatedAt()
-        );
-    }
 }

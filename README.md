@@ -34,8 +34,8 @@ install file:bundles/org.apache.felix.scr-2.2.4.jar
 install file:bundles/h2-2.2.224.jar
 
 install file:banking-api/target/banking-api-1.0.0.jar
-install file:banking-account/target/banking-account-1.0.0.jar
 install file:banking-persistence/target/banking-persistence-1.0.0.jar
+install file:banking-account/target/banking-account-1.0.0.jar
 install file:banking-customer/target/banking-customer-1.0.0.jar
 install file:banking-transaction/target/banking-transaction-1.0.0.jar
 install file:customer-support/target/customer-support-1.0.0.jar
