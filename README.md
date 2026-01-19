@@ -27,14 +27,18 @@ You’ll see the Gogo prompt `g!` (modern replacement for the old `osgi>`).
 
 ## Install and start bundles inside the console
 ```
+install file:bundles/org.osgi.util.function-1.2.0.jar
+install file:bundles/org.osgi.util.promise-1.3.0.jar
+install file:bundles/org.osgi.service.component-1.5.0.jar
+install file:bundles/org.apache.felix.scr-2.2.4.jar
+install file:bundles/h2-2.2.224.jar
+
 install file:banking-api/target/banking-api-1.0.0.jar
 install file:banking-account/target/banking-account-1.0.0.jar
-install file:banking-transaction/target/banking-transaction-1.0.0.jar
-install file:banking-customer/target/banking-customer-1.0.0.jar
-install file:banking-deposit/target/banking-deposit-1.0.0.jar
-install file:banking-cli/target/banking-cli-1.0.0.jar
 install file:banking-persistence/target/banking-persistence-1.0.0.jar
-install file:banking-support/target/banking-support-1.0.0.jar
+install file:customer-support/target/customer-support-1.0.0.jar
+install file:banking-cli/target/banking-cli-1.0.0.jar
+
 ss   # note the assigned bundle IDs
 start <api-id>
 start <account-id>
@@ -48,3 +52,6 @@ start <support-id>
 Start account before transaction so the account service is available; the transaction bundle will then run its demo. The CLI bundle provides interactive commands for the banking system. Use `stop 0` to shut down the framework.
 
 The persistence bundle exposes a shared H2 DataSource at `jdbc:h2:./bankdb;AUTO_SERVER=TRUE`; the support bundle uses it to create the `SUPPORT_TICKET` table and persist tickets between runs.
+```
+java -cp ~/.m2/repository/com/h2database/h2/2.2.224/h2-2.2.224.jar org.h2.tools.Server -web -webPort 8082 -ifNotExists -baseDir /Users/teojiesern/Documents/school/WIF3006_CBSE/aa/banking-system-osgi (Replace this with the path to your project)
+```

@@ -11,7 +11,7 @@
         <version>1.0.0</version>
     </parent>
     
-    <artifactId>banking-support</artifactId>
+    <artifactId>customer-support</artifactId>
     <packaging>bundle</packaging>
     
     <dependencies>
