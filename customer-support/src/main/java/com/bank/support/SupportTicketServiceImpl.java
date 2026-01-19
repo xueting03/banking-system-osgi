@@ -1,6 +1,6 @@
 package com.bank.support;
 
-import com.bank.api.IAccountService;
+import com.bank.api.ICustomerService;
 import com.bank.api.ISupportTicketService;
 import com.bank.api.SupportTicket;
 import com.bank.api.TicketStatus;
@@ -23,7 +23,7 @@ import org.osgi.service.component.annotations.Reference;
 public class SupportTicketServiceImpl implements ISupportTicketService {
 
     @Reference
-    private IAccountService accountService;
+    private ICustomerService customerService;
 
     @Reference
     private DataSource dataSource;
@@ -38,14 +38,20 @@ public class SupportTicketServiceImpl implements ISupportTicketService {
     }
 
     @Override
-    public SupportTicket createTicket(String accountNumber, String profilePassword, String title, String description) {
-        if (isBlank(accountNumber) || isBlank(profilePassword) || isBlank(description)) {
-            System.out.println("Ticket creation failed: account number, password, and description are required.");
+    public SupportTicket createTicket(String customerIdNumber, String authPassword, String title, String description) {
+        if (isBlank(customerIdNumber) || isBlank(authPassword) || isBlank(description)) {
+            System.out.println("Ticket creation failed: customer id number, password, and description are required.");
             return null;
         }
 
-        if (accountService.getAccount(accountNumber) == null) {
-            System.out.println("Ticket creation failed: customer profile not found for account " + accountNumber);
+        if (!customerService.verifyLogin(customerIdNumber, authPassword)) {
+            System.out.println("Ticket creation failed: invalid customer credentials for " + customerIdNumber);
+            return null;
+        }
+
+        var customer = customerService.getCustomer(customerIdNumber);
+        if (customer == null) {
+            System.out.println("Ticket creation failed: customer profile not found for " + customerIdNumber);
             return null;
         }
 
@@ -53,13 +59,13 @@ public class SupportTicketServiceImpl implements ISupportTicketService {
         String id = UUID.randomUUID().toString();
         String ticketTitle = coalesce(title, "General Inquiry");
 
-        String sql = "INSERT INTO SUPPORT_TICKET (ID, ACCOUNT_NUMBER, PROFILE_PASSWORD, TITLE, DESCRIPTION, ASSIGNED_STAFF_ID, STATUS, CREATED_AT, UPDATED_AT) "
+        String sql = "INSERT INTO SUPPORT_TICKET (ID, CUSTOMER_ID, CUSTOMER_IDENTIFICATION, TITLE, DESCRIPTION, ASSIGNED_STAFF_ID, STATUS, CREATED_AT, UPDATED_AT) "
                    + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
         try (Connection connection = dataSource.getConnection();
              PreparedStatement ps = connection.prepareStatement(sql)) {
             ps.setString(1, id);
-            ps.setString(2, accountNumber);
-            ps.setString(3, profilePassword);
+            ps.setString(2, customer.getId());
+            ps.setString(3, customer.getIdentificationNo());
             ps.setString(4, ticketTitle);
             ps.setString(5, description);
             ps.setString(6, null);
@@ -73,17 +79,18 @@ public class SupportTicketServiceImpl implements ISupportTicketService {
         }
 
         System.out.println("Support ticket created with ID: " + id);
-        return new SupportTicket(id, accountNumber, ticketTitle, description, null, TicketStatus.OPEN, now, now);
+        return new SupportTicket(id, customerIdNumber, ticketTitle, description, null, TicketStatus.OPEN, now, now);
     }
 
     @Override
-    public SupportTicket updateTicketDetails(String ticketId, String profilePassword, String title, String description) {
+    public SupportTicket updateTicketDetails(String ticketId, String authPassword, String title, String description) {
         TicketRow row = loadTicket(ticketId);
         if (row == null) {
             System.out.println("Update failed: ticket not found for ID " + ticketId);
             return null;
         }
-        if (!Objects.equals(row.profilePassword, profilePassword)) {
+        String ownerLoginId = isBlank(row.customerIdentification) ? row.ticket.getAccountNumber() : row.customerIdentification;
+        if (!customerService.verifyLogin(ownerLoginId, authPassword)) {
             System.out.println("Update failed: invalid customer credentials for ticket " + ticketId);
             return null;
         }
@@ -120,6 +127,7 @@ public class SupportTicketServiceImpl implements ISupportTicketService {
             now
         );
     }
+
 
     @Override
     public SupportTicket assignTicket(String ticketId, String staffId) {
@@ -233,8 +241,8 @@ public class SupportTicketServiceImpl implements ISupportTicketService {
     private void initSchema(Connection connection) throws SQLException {
         String sql = "CREATE TABLE IF NOT EXISTS SUPPORT_TICKET ("
             + "ID VARCHAR(36) PRIMARY KEY, "
-            + "ACCOUNT_NUMBER VARCHAR(255) NOT NULL, "
-            + "PROFILE_PASSWORD VARCHAR(255) NOT NULL, "
+            + "CUSTOMER_ID VARCHAR(255) NOT NULL, "
+            + "CUSTOMER_IDENTIFICATION VARCHAR(255), "
             + "TITLE VARCHAR(255) NOT NULL, "
             + "DESCRIPTION CLOB NOT NULL, "
             + "ASSIGNED_STAFF_ID VARCHAR(255), "
@@ -248,7 +256,7 @@ public class SupportTicketServiceImpl implements ISupportTicketService {
     }
 
     private TicketRow loadTicket(String ticketId) {
-        String sql = "SELECT ID, ACCOUNT_NUMBER, TITLE, DESCRIPTION, ASSIGNED_STAFF_ID, STATUS, CREATED_AT, UPDATED_AT, PROFILE_PASSWORD "
+        String sql = "SELECT ID, CUSTOMER_ID, CUSTOMER_IDENTIFICATION, TITLE, DESCRIPTION, ASSIGNED_STAFF_ID, STATUS, CREATED_AT, UPDATED_AT "
             + "FROM SUPPORT_TICKET WHERE ID = ?";
         try (Connection connection = dataSource.getConnection();
              PreparedStatement ps = connection.prepareStatement(sql)) {
@@ -256,8 +264,8 @@ public class SupportTicketServiceImpl implements ISupportTicketService {
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     SupportTicket ticket = mapTicket(rs);
-                    String password = rs.getString("PROFILE_PASSWORD");
-                    return new TicketRow(ticket, password);
+                    String identification = rs.getString("CUSTOMER_IDENTIFICATION");
+                    return new TicketRow(ticket, identification);
                 }
             }
         } catch (SQLException e) {
@@ -269,7 +277,7 @@ public class SupportTicketServiceImpl implements ISupportTicketService {
     private SupportTicket mapTicket(ResultSet rs) throws SQLException {
         return new SupportTicket(
             rs.getString("ID"),
-            rs.getString("ACCOUNT_NUMBER"),
+            rs.getString("CUSTOMER_ID"),
             rs.getString("TITLE"),
             rs.getString("DESCRIPTION"),
             rs.getString("ASSIGNED_STAFF_ID"),
@@ -293,11 +301,11 @@ public class SupportTicketServiceImpl implements ISupportTicketService {
 
     private static final class TicketRow {
         private final SupportTicket ticket;
-        private final String profilePassword;
+        private final String customerIdentification;
 
-        private TicketRow(SupportTicket ticket, String profilePassword) {
+        private TicketRow(SupportTicket ticket, String customerIdentification) {
             this.ticket = ticket;
-            this.profilePassword = profilePassword;
+            this.customerIdentification = customerIdentification;
         }
     }
 }
