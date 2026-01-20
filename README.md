@@ -40,6 +40,7 @@ install file:banking-customer/target/banking-customer-1.0.0.jar
 install file:banking-deposit/target/banking-deposit-1.0.0.jar
 install file:banking-transaction/target/banking-transaction-1.0.0.jar
 install file:customer-support/target/customer-support-1.0.0.jar
+install file:banking-card/target/banking-card-1.0.0.jar  
 install file:banking-cli/target/banking-cli-1.0.0.jar
 
 ss   # note the assigned bundle IDs

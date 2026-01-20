@@ -54,4 +54,17 @@ public class SupportCommands {
         SupportTicket ticket = supportService.updateTicketStatus(ticketId, staffId, parsed);
         return ticket == null ? "Failed to update status" : format(ticket);
     }
+
+    private String format(SupportTicket ticket) {
+        return String.format(
+                "Ticket %s | acct=%s | title=%s | assigned=%s | status=%s | created=%s | updated=%s",
+                ticket.getId(),
+                ticket.getAccountNumber(),
+                ticket.getTitle(),
+                ticket.getAssignedStaffId(),
+                ticket.getStatus(),
+                ticket.getCreatedAt(),
+                ticket.getUpdatedAt()
+        );
+    }
 }

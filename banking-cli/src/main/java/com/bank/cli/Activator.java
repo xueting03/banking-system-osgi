@@ -3,6 +3,7 @@ package com.bank.cli;
 import java.util.Dictionary;
 import java.util.Hashtable;
 
+import com.bank.api.ICardService;
 import org.osgi.framework.BundleActivator;
 import org.osgi.framework.BundleContext;
 import org.osgi.framework.ServiceReference;
@@ -22,6 +23,8 @@ public class Activator implements BundleActivator {
     private ServiceRegistration<?> customerCommandServiceRegistration;
     private ServiceRegistration<?> supportCommandServiceRegistration;
     private ServiceTracker<ISupportTicketService, ISupportTicketService> supportServiceTracker;
+    private ServiceRegistration<?> cardCommandServiceRegistration;
+    private ServiceTracker<ICardService, ICardService> cardServiceTracker;
 
     @Override
     public void start(BundleContext context) throws Exception {
@@ -50,6 +53,14 @@ public class Activator implements BundleActivator {
             new SupportServiceTrackerCustomizer(context)
         );
         supportServiceTracker.open();
+
+        // Tract ICardService
+        cardServiceTracker = new ServiceTracker<>(
+            context,
+            ICardService.class,
+            new CardServiceTrackerCustomizer(context)
+        );
+        cardServiceTracker.open();
     }
 
     @Override
@@ -84,6 +95,16 @@ public class Activator implements BundleActivator {
         if (supportServiceTracker != null) {
             supportServiceTracker.close();
             supportServiceTracker = null;
+        }
+
+        if (cardCommandServiceRegistration != null) {
+            cardCommandServiceRegistration.unregister();
+            cardCommandServiceRegistration = null;
+        }
+
+        if (cardServiceTracker != null) {
+            cardServiceTracker.close();
+            cardServiceTracker = null;
         }
     }
 
@@ -253,6 +274,62 @@ public class Activator implements BundleActivator {
             if (supportCommandServiceRegistration != null) {
                 supportCommandServiceRegistration.unregister();
                 supportCommandServiceRegistration = null;
+            }
+
+            context.ungetService(reference);
+        }
+    }
+
+    /**
+     * Tracks the lifecycle of the Card service.
+     */
+    private class CardServiceTrackerCustomizer implements ServiceTrackerCustomizer<ICardService, ICardService> {
+
+        private final BundleContext context;
+
+        public CardServiceTrackerCustomizer(BundleContext context) {
+            this.context = context;
+        }
+
+        @Override
+        public ICardService addingService(ServiceReference<ICardService> reference) {
+            ICardService cardService = context.getService(reference);
+
+            if (cardService != null) {
+                System.out.println("Card service detected - Registering Gogo commands...");
+
+                CardCommands commands = new CardCommands(cardService);
+
+                Dictionary<String, Object> properties = new Hashtable<>();
+                properties.put("osgi.command.scope", "card");
+                properties.put("osgi.command.function", new String[]{
+                        "create", "get", "status", "pin", "limit"
+                });
+
+                cardCommandServiceRegistration = context.registerService(
+                        CardCommands.class.getName(),
+                        commands,
+                        properties
+                );
+
+                System.out.println("Gogo card commands registered successfully!");
+            }
+
+            return cardService;
+        }
+
+        @Override
+        public void modifiedService(ServiceReference<ICardService> reference, ICardService service) {
+            // No action needed on modification
+        }
+
+        @Override
+        public void removedService(ServiceReference<ICardService> reference, ICardService service) {
+            System.out.println("Card service removed - Unregistering commands...");
+
+            if (cardCommandServiceRegistration != null) {
+                cardCommandServiceRegistration.unregister();
+                cardCommandServiceRegistration = null;
             }
 
             context.ungetService(reference);
