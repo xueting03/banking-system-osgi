@@ -86,7 +86,7 @@ public class CardServiceImpl implements ICardService {
 
         String accountId = acc.getAccountId();
         // ensure no existing card for this account
-        if (getCardByAccountId(accountId) != null) {
+        if (getCardByAccount(acc) != null) {
             System.out.println("Card creation failed: account already has a card.");
             return null;
         }
@@ -126,8 +126,7 @@ public class CardServiceImpl implements ICardService {
             System.out.println("Card retrieval failed: deposit account not found.");
             return null;
         }
-        String accountId = acc.getAccountId();
-        return getCardByAccountId(accountId);
+        return getCardByAccount(acc);
     }
 
     @Override
@@ -149,8 +148,7 @@ public class CardServiceImpl implements ICardService {
             return null;
         }
 
-        String accountId = acc.getAccountId();
-        Card card = getCardByAccountId(accountId);
+        Card card = getCardByAccount(acc);
         if (card == null) {
             System.out.println("Update PIN failed: card not found.");
             return null;
@@ -198,8 +196,7 @@ public class CardServiceImpl implements ICardService {
             return null;
         }
 
-        String accountId = acc.getAccountId();
-        Card card = getCardByAccountId(accountId);
+        Card card = getCardByAccount(acc);
         if (card == null) {
             System.out.println("Update status failed: card not found.");
             return null;
@@ -290,8 +287,7 @@ public class CardServiceImpl implements ICardService {
             System.out.println("Update limit failed: deposit account not found.");
             return null;
         }
-        String accountId = acc.getAccountId();
-        Card card = getCardByAccountId(accountId);
+        Card card = getCardByAccount(acc);
 
         if (card == null) {
             System.out.println("Update limit failed: card not found.");
@@ -346,17 +342,21 @@ public class CardServiceImpl implements ICardService {
         return sb.toString();
     }
 
-    private Card getCardByAccountId(String accountId) {
+    private Card getCardByAccount(DepositAccount account) {
         String selectSql = "SELECT * FROM CARD WHERE ACCOUNT_ID = ?";
+        Card card = null;
         try (Connection connection = dataSource.getConnection();
              PreparedStatement ps = connection.prepareStatement(selectSql)) {
-            ps.setString(1, accountId);
+            ps.setString(1, account.getAccountId());
             var rs = ps.executeQuery();
             if (rs.next()) {
-                return mapCard(rs);
+                card = mapCard(rs);
             }
         } catch (SQLException e) {
             System.out.println("Failed to retrieve card: " + e.getMessage());
+        }
+        if (card != null) {
+            return syncCardStatusWithDeposit(account, card);
         }
         return null;
     }
@@ -370,6 +370,37 @@ public class CardServiceImpl implements ICardService {
                 Card.CardStatus.valueOf(rs.getString("STATUS").toUpperCase()),
                 rs.getString("PIN_NUMBER")
         );
+    }
+
+    private Card syncCardStatusWithDeposit(DepositAccount acc, Card card) {
+        if (acc == null || card == null) {
+            return card;
+        }
+
+        Card.CardStatus targetStatus = null;
+        if (acc.isFrozen()) {
+            targetStatus = Card.CardStatus.FROZEN;
+        } else if (acc.isClosed()) {
+            targetStatus = Card.CardStatus.INACTIVE;
+        } else {
+            return card;
+        }
+
+        if (card.getStatus() == targetStatus) {
+            return card;
+        }
+
+        String updateSql = "UPDATE CARD SET STATUS = ? WHERE ACCOUNT_ID = ?";
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement ps = connection.prepareStatement(updateSql)) {
+            ps.setString(1, targetStatus.name());
+            ps.setString(2, card.getAccountId());
+            ps.executeUpdate();
+            card.setStatus(targetStatus);
+        } catch (SQLException e) {
+            System.out.println("Failed to sync card status: " + e.getMessage());
+        }
+        return card;
     }
 
     private boolean isBlank(String value) {

@@ -236,7 +236,7 @@ class CardServiceImplTest {
         assertNotNull(created);
 
         // activate before changing limit
-        service.updateCardStatus(ID_NO, PASSWORD, com.bank.api.ICardService.UpdateAction.ACTIVATE, PIN);
+        service.updateCardStatus(ID_NO, PASSWORD, ICardService.UpdateAction.ACTIVATE, PIN);
 
         // when trigger transaction limit update
         Card updated = service.updateCardTransactionLimit(ID_NO, PASSWORD, 3000, PIN);
@@ -258,7 +258,7 @@ class CardServiceImplTest {
         assertNotNull(created);
 
         // activate
-        service.updateCardStatus(ID_NO, PASSWORD, com.bank.api.ICardService.UpdateAction.ACTIVATE, PIN);
+        service.updateCardStatus(ID_NO, PASSWORD, ICardService.UpdateAction.ACTIVATE, PIN);
 
         // when trigger transaction limit update with invalid limit
         Card result = service.updateCardTransactionLimit(ID_NO, PASSWORD, 20000, PIN);
@@ -299,7 +299,7 @@ class CardServiceImplTest {
         assertEquals(Card.CardStatus.INACTIVE, created.getStatus());
 
         // when trigger activation
-        Card activated = service.updateCardStatus(ID_NO, PASSWORD, com.bank.api.ICardService.UpdateAction.ACTIVATE, PIN);
+        Card activated = service.updateCardStatus(ID_NO, PASSWORD, ICardService.UpdateAction.ACTIVATE, PIN);
 
         // then expect card to be activated
         assertNotNull(activated);
@@ -325,7 +325,7 @@ class CardServiceImplTest {
         Mockito.when(mockDepositService.getDepositAccount(ID_NO, PASSWORD)).thenReturn(depositClosed);
 
         // when trigger activation
-        Card result = service.updateCardStatus(ID_NO, PASSWORD, com.bank.api.ICardService.UpdateAction.ACTIVATE, PIN);
+        Card result = service.updateCardStatus(ID_NO, PASSWORD, ICardService.UpdateAction.ACTIVATE, PIN);
 
         // then expect null result
         assertNull(result, "Expected null when linked deposit account is not Active");
@@ -343,15 +343,48 @@ class CardServiceImplTest {
         assertNotNull(created);
 
         // activate then freeze
-        service.updateCardStatus(ID_NO, PASSWORD, com.bank.api.ICardService.UpdateAction.ACTIVATE, PIN);
-        Card frozen = service.updateCardStatus(ID_NO, PASSWORD, com.bank.api.ICardService.UpdateAction.FREEZE, PIN);
+        service.updateCardStatus(ID_NO, PASSWORD, ICardService.UpdateAction.ACTIVATE, PIN);
+        Card frozen = service.updateCardStatus(ID_NO, PASSWORD, ICardService.UpdateAction.FREEZE, PIN);
         assertNotNull(frozen);
         assertEquals(Card.CardStatus.FROZEN, frozen.getStatus());
 
         // when trigger freeze again
-        Card again = service.updateCardStatus(ID_NO, PASSWORD, com.bank.api.ICardService.UpdateAction.FREEZE, PIN);
+        Card again = service.updateCardStatus(ID_NO, PASSWORD, ICardService.UpdateAction.FREEZE, PIN);
 
         // then expect null result
         assertNull(again, "Expected null when card is already FROZEN");
+    }
+
+    @Test
+    void getCard_syncsStatusWithDeposit() {
+        Mockito.when(mockCustomerService.verifyLogin(ID_NO, PASSWORD)).thenReturn(true);
+
+        // given deposit is Active and card is created
+        DepositAccount depositActive = new DepositAccount("DA123", "CUST1", BigDecimal.ZERO);
+        depositActive.setStatus("Active");
+        Mockito.when(mockDepositService.getDepositAccount(ID_NO, PASSWORD)).thenReturn(depositActive);
+
+        Card created = service.createCard(ID_NO, PASSWORD, PIN);
+        assertNotNull(created, "Expected card to be created");
+
+        // when deposit account status changes to Frozen
+        DepositAccount depositFrozen = new DepositAccount("DA123", "CUST1", BigDecimal.ZERO);
+        depositFrozen.setStatus("Frozen");
+        Mockito.when(mockDepositService.getDepositAccount(ID_NO, PASSWORD)).thenReturn(depositFrozen);
+
+        // then card status should sync to FROZEN
+        Card fetched = service.getCard(ID_NO, PASSWORD);
+        assertNotNull(fetched, "Expected to fetch card after deposit frozen");
+        assertEquals(Card.CardStatus.FROZEN, fetched.getStatus(), "Expected card status to be FROZEN after deposit freeze");
+
+        // when deposit account status changes to INACTIVE
+        DepositAccount depositClosed = new DepositAccount("DA123", "CUST1", BigDecimal.ZERO);
+        depositClosed.setStatus("Closed");
+        Mockito.when(mockDepositService.getDepositAccount(ID_NO, PASSWORD)).thenReturn(depositClosed);
+
+        // then card status should sync to INACTIVE
+        fetched = service.getCard(ID_NO, PASSWORD);
+        assertNotNull(fetched, "Expected to fetch card after deposit closed");
+        assertEquals(Card.CardStatus.INACTIVE, fetched.getStatus(), "Expected card status to be INACTIVE after deposit close");
     }
 }
