@@ -5,8 +5,11 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.util.logging.Logger;
+
 import javax.sql.DataSource;
+
 import org.h2.jdbcx.JdbcDataSource;
+import org.h2.tools.Server;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Deactivate;
@@ -22,9 +25,18 @@ public class H2DataSourceProvider implements DataSource {
     private static final String JDBC_PASSWORD = "";
 
     private JdbcDataSource delegate;
+    private Server webServer;
 
     @Activate
     void activate() {
+
+        try {
+            webServer = Server.createWebServer("-webPort", "8082", "-tcpAllowOthers").start();
+            System.out.println("H2 Web Console started at: " + webServer.getURL());
+        } catch (SQLException e) {
+            System.err.println("Failed to start H2 Web Console: " + e.getMessage());
+        }
+
         delegate = new JdbcDataSource();
         delegate.setURL(JDBC_URL);
         delegate.setUser(JDBC_USER);
@@ -35,6 +47,10 @@ public class H2DataSourceProvider implements DataSource {
     @Deactivate
     void deactivate() {
         delegate = null;
+        if (webServer != null) {
+            webServer.stop();
+            System.out.println("H2 Web Console stopped.");
+        }
     }
 
     @Override
