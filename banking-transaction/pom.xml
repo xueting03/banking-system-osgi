@@ -15,11 +15,41 @@
     <packaging>bundle</packaging>
     
     <dependencies>
+    <dependency>
+    <groupId>com.h2database</groupId>
+    <artifactId>h2</artifactId>
+    <version>2.2.224</version>
+    <scope>test</scope>
+</dependency>
+
+<dependency>
+    <groupId>org.junit.jupiter</groupId>
+    <artifactId>junit-jupiter</artifactId>
+    <version>5.10.2</version>
+    <scope>test</scope>
+</dependency>
+
+<dependency>
+    <groupId>org.mockito</groupId>
+    <artifactId>mockito-core</artifactId>
+    <version>5.11.0</version>
+    <scope>test</scope>
+</dependency>
+
         <dependency>
             <groupId>com.bank</groupId>
             <artifactId>banking-api</artifactId>
             <version>1.0.0</version>
+            
         </dependency>
+          <!-- OSGi Declarative Services annotations -->
+    <dependency>
+        <groupId>org.osgi</groupId>
+        <artifactId>org.osgi.service.component.annotations</artifactId>
+        <version>1.5.0</version>
+        <scope>provided</scope>
+    </dependency>
+    
     </dependencies>
     
     <build>
@@ -30,7 +60,8 @@
                 <configuration>
                     <instructions>
                         <Bundle-SymbolicName>${project.artifactId}</Bundle-SymbolicName>
-                        <Bundle-Activator>com.bank.transaction.Activator</Bundle-Activator>
+                        <_dsannotations>*</_dsannotations>
+                        <!-- <Bundle-Activator>com.bank.transaction.Activator</Bundle-Activator> -->
                         <Import-Package>*</Import-Package>
                         <Private-Package>com.bank.transaction</Private-Package>
                     </instructions>
