@@ -17,6 +17,10 @@ import org.osgi.service.component.annotations.Reference;
 
 @Component(service = ICustomerService.class, immediate = true)
 public class CustomerServiceImpl implements ICustomerService {
+    // For backward compatibility with tests and other modules
+    public Customer createCustomer(String name, String email, String password) {
+        return createCustomer(null, name, email, password);
+    }
 
     @Reference
     private DataSource dataSource;
@@ -59,11 +63,20 @@ public class CustomerServiceImpl implements ICustomerService {
 
     @Override
     public Customer createCustomer(String name, String email) {
-        return createCustomer(name, email, "changeme123"); // default password for demo
+        return createCustomer(null, name, email, "changeme123"); // default password for demo
     }
 
-    // Overloaded for password and status
-    public Customer createCustomer(String name, String email, String password) {
+    // Overloaded for IC, password and status
+    public Customer createCustomer(String ic, String name, String email, String password) {
+        if (name == null || name.trim().isEmpty()) {
+            throw new IllegalArgumentException("Name cannot be null or empty");
+        }
+        if (email == null || email.trim().isEmpty()) {
+            throw new IllegalArgumentException("Email cannot be null or empty");
+        }
+        if (password == null || password.trim().isEmpty()) {
+            throw new IllegalArgumentException("Password cannot be null or empty");
+        }
         if (!isPasswordValid(password)) {
             throw new IllegalArgumentException("Password does not meet criteria: at least 8 characters, contain a digit and a letter.");
         }
@@ -78,7 +91,7 @@ public class CustomerServiceImpl implements ICustomerService {
             ps.setString(1, id);
             ps.setString(2, name);
             ps.setString(3, email);
-            ps.setString(4, null);
+            ps.setString(4, ic);
             ps.setString(5, passwordHash);
             ps.setString(6, "ACTIVE");
             ps.setTimestamp(7, Timestamp.valueOf(now));
@@ -88,6 +101,7 @@ public class CustomerServiceImpl implements ICustomerService {
         }
 
         Customer customer = new Customer(id, name, email);
+        customer.setIdentificationNo(ic);
         customer.setPassword(passwordHash);
         customer.setStatus("ACTIVE");
         customer.setCreatedAt(Timestamp.valueOf(now));
@@ -117,6 +131,15 @@ public class CustomerServiceImpl implements ICustomerService {
 
     // Overloaded for partial update and password change
     public Customer updateCustomer(String id, String name, String email, String currentPassword, String newPassword, String status) {
+        if (id == null || id.trim().isEmpty()) {
+            throw new IllegalArgumentException("ID cannot be null or empty");
+        }
+        // Only validate currentPassword/newPassword if a password change is requested
+        if (newPassword != null && !newPassword.isEmpty()) {
+            if (currentPassword == null || currentPassword.trim().isEmpty()) {
+                throw new IllegalArgumentException("Current password cannot be null or empty");
+            }
+        }
         CustomerRecord record = loadCustomerById(id);
         if (record == null) {
             System.out.println("Update failed: Customer not found (" + id + ")");
@@ -157,6 +180,9 @@ public class CustomerServiceImpl implements ICustomerService {
 
     @Override
     public Customer getCustomer(String idOrIdentification) {
+                if (idOrIdentification == null || idOrIdentification.trim().isEmpty()) {
+                    throw new IllegalArgumentException("ID or Identification cannot be null or empty");
+                }
         CustomerRecord byId = loadCustomerById(idOrIdentification);
         if (byId != null) {
             return byId.customer;
@@ -167,6 +193,12 @@ public class CustomerServiceImpl implements ICustomerService {
 
     // Login/verify method
     public boolean verifyLogin(String idOrIdentificationNo, String password) {
+                if (idOrIdentificationNo == null || idOrIdentificationNo.trim().isEmpty()) {
+                    throw new IllegalArgumentException("ID or IC cannot be null or empty");
+                }
+                if (password == null || password.trim().isEmpty()) {
+                    throw new IllegalArgumentException("Password cannot be null or empty");
+                }
         CustomerRecord record = loadCustomerById(idOrIdentificationNo);
         if (record == null) {
             record = loadCustomerByIdentification(idOrIdentificationNo);
@@ -216,15 +248,14 @@ public class CustomerServiceImpl implements ICustomerService {
 
     private CustomerRecord loadSingle(String sql, String key) {
         try (Connection connection = dataSource.getConnection();
-             PreparedStatement ps = connection.prepareStatement(sql)) {
+                PreparedStatement ps = connection.prepareStatement(sql)) {
             ps.setString(1, key);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     Customer customer = new Customer(
-                        rs.getString("ID"),
-                        rs.getString("NAME"),
-                        rs.getString("EMAIL")
-                    );
+                            rs.getString("ID"),
+                            rs.getString("NAME"),
+                            rs.getString("EMAIL"));
                     customer.setIdentificationNo(rs.getString("IDENTIFICATION_NO"));
                     customer.setStatus(rs.getString("STATUS"));
                     customer.setCreatedAt(rs.getTimestamp("CREATED_AT"));
@@ -233,6 +264,7 @@ public class CustomerServiceImpl implements ICustomerService {
                 }
             }
         } catch (SQLException e) {
+            System.err.println("SQL Error: " + e.getMessage()); 
             throw new RuntimeException("Error loading customer", e);
         }
         return null;
