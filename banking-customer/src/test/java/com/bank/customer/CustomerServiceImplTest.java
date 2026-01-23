@@ -44,7 +44,7 @@ public class CustomerServiceImplTest {
     @Test
     void createCustomer_rejectsWeakPassword() {
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
-            () -> service.createCustomer("Weak User", "weak@example.com", "short"));
+                () -> service.createCustomer("Weak User", "weak@example.com", "short"));
         assertTrue(ex.getMessage().contains("Password"), "Should mention password criteria");
     }
 
@@ -84,14 +84,15 @@ public class CustomerServiceImplTest {
 
         // Wrong current password
         assertThrows(IllegalArgumentException.class,
-            () -> service.updateCustomer(customer.getId(), null, null, "badCurrent", "Newpass1", null));
+                () -> service.updateCustomer(customer.getId(), null, null, "badCurrent", "Newpass1", null));
 
         // Weak new password
         assertThrows(IllegalArgumentException.class,
-            () -> service.updateCustomer(customer.getId(), null, null, "Password1", "short", null));
+                () -> service.updateCustomer(customer.getId(), null, null, "Password1", "short", null));
 
         // Happy path
-        Customer updated = service.updateCustomer(customer.getId(), "Updated", "new@example.com", "Password1", "Newpass1", null);
+        Customer updated = service.updateCustomer(customer.getId(), "Updated", "new@example.com", "Password1",
+                "Newpass1", null);
         assertEquals("Updated", updated.getName());
         assertEquals("new@example.com", updated.getEmail());
         assertTrue(service.verifyLogin(customer.getId(), "Newpass1"));
@@ -107,5 +108,90 @@ public class CustomerServiceImplTest {
         Customer updated = service.updateCustomer(customer.getId(), "Alice Smith", "alice.smith@example.com");
         assertEquals("Alice Smith", updated.getName());
         assertEquals("alice.smith@example.com", updated.getEmail());
+    }
+
+    @Test
+    void registerDuplicateIdentificationNo_shouldNotOverwrite() {
+        Customer customer1 = service.createCustomer("User1", "user1@example.com", "Password1");
+        customer1.setIdentificationNo("DUPLICATEIC");
+        service.registerIdentificationNo(customer1);
+
+        Customer customer2 = service.createCustomer("User2", "user2@example.com", "Password2");
+        customer2.setIdentificationNo("DUPLICATEIC");
+        service.registerIdentificationNo(customer2);
+
+        // Should still find the first customer by IC
+        Customer found = service.getCustomer("DUPLICATEIC");
+        assertNotNull(found);
+        assertEquals(customer1.getId(), found.getId());
+    }
+
+    @Test
+    void createCustomer_nullAndEmptyInputs() {
+        assertThrows(IllegalArgumentException.class,
+                () -> service.createCustomer(null, "email@example.com", "Password1"));
+        assertThrows(IllegalArgumentException.class,
+                () -> service.createCustomer("", "email@example.com", "Password1"));
+        assertThrows(IllegalArgumentException.class, () -> service.createCustomer("Name", null, "Password1"));
+        assertThrows(IllegalArgumentException.class, () -> service.createCustomer("Name", "", "Password1"));
+        assertThrows(IllegalArgumentException.class, () -> service.createCustomer("Name", "email@example.com", null));
+        assertThrows(IllegalArgumentException.class, () -> service.createCustomer("Name", "email@example.com", ""));
+    }
+
+    @Test
+    void updateCustomer_nullInputsAndStatusEdgeCases() {
+        Customer customer = service.createCustomer("Edge", "edge@example.com", "Password1");
+        // Null/empty updates should not throw
+        assertDoesNotThrow(() -> service.updateCustomer(customer.getId(), null, null));
+        assertDoesNotThrow(() -> service.updateCustomer(customer.getId(), "Edge", null));
+        assertDoesNotThrow(() -> service.updateCustomer(customer.getId(), null, "edge2@example.com"));
+
+        // Set to INACTIVE, then ACTIVE again
+        Customer inactive = service.updateCustomer(customer.getId(), null, null, null, null, "INACTIVE");
+        assertEquals("INACTIVE", inactive.getStatus());
+        Customer active = service.updateCustomer(customer.getId(), null, null, null, null, "ACTIVE");
+        assertEquals("ACTIVE", active.getStatus());
+    }
+
+    @Test
+    void createCustomer_duplicateIC_shouldFail() {
+        Customer c1 = service.createCustomer("DupIC", "dup1@example.com", "Password1");
+        c1.setIdentificationNo("DUPIC123");
+        service.registerIdentificationNo(c1);
+
+        Customer c2 = service.createCustomer("DupIC2", "dup2@example.com", "Password2");
+        c2.setIdentificationNo("DUPIC123");
+        // Should not overwrite the first customer
+        service.registerIdentificationNo(c2);
+
+        Customer found = service.getCustomer("DUPIC123");
+        assertEquals(c1.getId(), found.getId());
+    }
+
+    @Test
+    void createCustomer_weakPassword_shouldFail() {
+        Exception ex = assertThrows(IllegalArgumentException.class, () ->
+            service.createCustomer("WeakPass", "weak@example.com", "123")
+        );
+        assertTrue(ex.getMessage().toLowerCase().contains("password"));
+    }
+
+    @Test
+    void updateCustomer_emailOnly_shouldSucceed() {
+        Customer c = service.createCustomer("EmailOnly", "old@example.com", "Password1");
+        Customer updated = service.updateCustomer(c.getId(), "EmailOnly", "new@example.com");
+        assertEquals("new@example.com", updated.getEmail());
+    }
+
+    @Test
+    void login_inactiveCustomer_shouldFail() {
+        Customer c = service.createCustomer("Inactive", "inactive@example.com", "Password1");
+        service.updateCustomer(c.getId(), "Inactive", "inactive@example.com", "Password1", "Password1", "INACTIVE");
+        assertFalse(service.verifyLogin(c.getId(), "Password1"));
+    }
+
+    @Test
+    void getCustomer_nonexistentId_shouldReturnNull() {
+        assertNull(service.getCustomer("nonexistent-id"));
     }
 }

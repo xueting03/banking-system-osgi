@@ -191,15 +191,13 @@ public class Activator implements BundleActivator {
                 Dictionary<String, Object> properties = new Hashtable<>();
                 properties.put("osgi.command.scope", "customer");
                 properties.put("osgi.command.function", new String[] {
-                    "create", "get"
+                    "create", "get", "update", "login"
                 });
-                
                 customerCommandServiceRegistration = context.registerService(
                     CustomerCommands.class.getName(),
                     commands,
                     properties
                 );
-                
                 System.out.println("Gogo customer commands registered successfully!");
             }
             
